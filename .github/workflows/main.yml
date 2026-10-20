@@ -1,3 +1,4 @@
+
 name: Build ImageAI APK
 
 on:
@@ -24,28 +25,28 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install Android SDK
+      - name: Configure Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
 
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses || true
 
-      - name: Check ZIP file
+      - name: Verify ZIP
         run: |
-          if [ ! -f "ImageAI_Android_Java.zip" ]; then
-            echo "ERROR: ImageAI_Android_Java.zip not found in repository root"
+          test -f ImageAI_Android_Java.zip || {
+            echo "ERROR: ZIP file not found in repository root"
             exit 1
-          fi
+          }
 
-      - name: Extract project ZIP
+      - name: Extract project
         run: |
           mkdir -p extracted
           unzip -o ImageAI_Android_Java.zip -d extracted
-          echo "Extracted project files:"
           find extracted -maxdepth 5 -type f | head -100
 
       - name: Locate Gradle project
@@ -56,26 +57,25 @@ jobs:
             -print -quit)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERROR: No settings.gradle found inside ZIP"
+            echo "ERROR: settings.gradle not found"
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$SETTINGS")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project directory: $PROJECT_DIR"
+          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
 
-      - name: Build debug APK
+      - name: Build APK
         run: |
           cd "$PROJECT_DIR"
 
-          if [ -f "gradlew" ]; then
+          if [ -f gradlew ]; then
             chmod +x gradlew
             ./gradlew --no-daemon assembleDebug
           else
             gradle --no-daemon assembleDebug
           fi
 
-      - name: Find generated APK
+      - name: Prepare APK
+        shell: bash
         run: |
           APK=$(find "$PROJECT_DIR" -type f \
             -path "*/build/outputs/apk/*/*.apk" \
@@ -86,11 +86,10 @@ jobs:
             exit 1
           fi
 
-          mkdir -p "$GITHUB_WORKSPACE/output"
-          cp "$APK" "$GITHUB_WORKSPACE/output/ImageAI-debug.apk"
-          echo "APK copied successfully"
+          mkdir -p output
+          cp "$APK" output/ImageAI-debug.apk
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ImageAI-debug-APK
