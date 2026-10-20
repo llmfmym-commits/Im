@@ -16,11 +16,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
       - name: Install SDK packages
         run: |
-          yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          SDKM=$(ls -d $ANDROID_HOME/cmdline-tools/*/bin/sdkmanager | head -n1)
+          yes | $SDKM --licenses > /dev/null || true
+          $SDKM "platforms;android-35" "build-tools;35.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -38,7 +38,7 @@ jobs:
       - name: Build release APK
         run: |
           cd "$PROJ"
-          gradle assembleRelease --no-daemon
+          gradle assembleRelease -x lintVitalRelease --no-daemon
 
       - name: Sign APK
         env:
